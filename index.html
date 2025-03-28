@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Bot Auto Trigger</title>
+    <script>
+        const TELEGRAM_BOT_TOKEN = "your-telegram-bot-token";
+        const CHAT_ID = "your-group-chat-id";  // Get this from BotFather or Telegram API
+        const GROQ_API_KEY = "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";
+        let lastUpdateId = 0;
+
+        async function fetchNewMessages() {
+            try {
+                let response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}`);
+                let data = await response.json();
+
+                if (data.result.length > 0) {
+                    let message = data.result[0].message;
+                    lastUpdateId = data.result[0].update_id;
+
+                    if (message && message.text) {
+                        let correctedText = await correctGrammar(message.text);
+                        sendMessage(correctedText);
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching messages:", error);
+            }
+        }
+
+        async function correctGrammar(text) {
+            try {
+                let response = await fetch("https://api.groq.com/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${GROQ_API_KEY}`
+                    },
+                    body: JSON.stringify({
+                        model: "llama3-8b-8192",
+                        messages: [{ role: "user", content: `Correct this sentence: ${text}` }]
+                    })
+                });
+
+                let data = await response.json();
+                return data.choices[0].message.content;
+            } catch (error) {
+                console.error("Error correcting text:", error);
+                return text;
+            }
+        }
+
+        async function sendMessage(text) {
+            try {
+                await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ chat_id: CHAT_ID, text: text })
+                });
+            } catch (error) {
+                console.error("Error sending message:", error);
+            }
+        }
+
+        setInterval(fetchNewMessages, 3000);  // Run every 3 seconds
+    </script>
+</head>
+<body>
+    <h1>Telegram Bot Auto Trigger</h1>
+    <p>Running every 3 seconds...</p>
+</body>
+</html>
